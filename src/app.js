@@ -1,10 +1,11 @@
 const Fastify = require('fastify');
 const swagger = require('@fastify/swagger');
 const swaggerUi = require('@fastify/swagger-ui');
+const os = require('node:os');
 const { isValidUuid, validateProductPayload, toProductData } = require('./validation');
 
 function buildApp({ db, logger = false }) {
-  const app = Fastify({ logger });
+  const app = Fastify({ logger, trustProxy: true });
 
   const productSchema = {
     type: 'object',
@@ -66,6 +67,14 @@ function buildApp({ db, logger = false }) {
     uiConfig: {
       docExpansion: 'list'
     }
+  });
+
+  app.get('/health', async (_, reply) => {
+    return reply.code(200).send({
+      status: 'ok',
+      instanceId: process.env.INSTANCE_ID || os.hostname(),
+      pid: process.pid
+    });
   });
 
   app.after(() => {
