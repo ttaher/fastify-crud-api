@@ -1,11 +1,12 @@
 const Fastify = require('fastify');
 const swagger = require('@fastify/swagger');
 const swaggerUi = require('@fastify/swagger-ui');
+const { isValidUuid } = require('./validation');
 
-function buildApp({db, logger = false }) {
+function buildApp({ db, logger = false }) {
   const app = Fastify({ logger });
 
-    const productSchema = {
+  const productSchema = {
     type: 'object',
     required: ['id', 'name', 'description', 'price', 'category', 'inStock'],
     properties: {
@@ -15,7 +16,7 @@ function buildApp({db, logger = false }) {
       price: { type: 'number', exclusiveMinimum: 0 },
       category: { type: 'string' },
       inStock: { type: 'boolean' },
-      createdAt: { type: 'string', format: 'date-time' ,default: new Date().toISOString() },
+      createdAt: { type: 'string', format: 'date-time', default: new Date().toISOString() },
       updatedAt: { type: 'string', format: 'date-time' },
       imgUrl: { type: 'string', format: 'uri' }
 
@@ -67,6 +68,34 @@ function buildApp({db, logger = false }) {
     }
   });
 
+  app.after(() => {
+    app.get('/api/products/:productId', {
+      schema: {
+        tags: ['Products'],
+        summary: 'Get product by id',
+        params: productIdParamsSchema,
+        response: {
+          200: productSchema,
+          400: errorSchema,
+          404: errorSchema
+        }
+      }
+    }, async (request, reply) => {
+      const { productId } = request.params;
+
+      if (!isValidUuid(productId)) {
+        return reply.code(400).send({ message: 'Invalid productId: expected UUID v4' });
+      }
+
+      const product = await db.getById(productId);
+      if (!product) {
+        return reply.code(404).send({ message: `Product with id ${productId} not found` });
+      }
+
+      return reply.code(200).send(product);
+    });
+  });
+
   app.setNotFoundHandler((request, reply) => {
     reply.code(404).send({
       message: `Route ${request.method} ${request.url} not found`
@@ -110,9 +139,6 @@ function buildApp({db, logger = false }) {
     reply.log.error(error);
     reply.code(500).send({ message: 'Internal server error' });
   });
-
-  app.after(() => {});
-
 
   return app;
 }
