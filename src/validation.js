@@ -40,8 +40,18 @@ function validateProductPayload(payload) {
   return null;
 }
 
+function toProductData(payload) {
+  return {
+    name: payload.name.trim(),
+    description: payload.description.trim(),
+    price: payload.price,
+    category: payload.category.trim(),
+    inStock: payload.inStock
+  };
+}
+
 module.exports = {
   isValidUuid,
-  validateProductPayload
-  
+  validateProductPayload,
+  toProductData
 };

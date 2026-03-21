@@ -1,7 +1,7 @@
 const Fastify = require('fastify');
 const swagger = require('@fastify/swagger');
 const swaggerUi = require('@fastify/swagger-ui');
-const { isValidUuid, validateProductPayload } = require('./validation');
+const { isValidUuid, validateProductPayload, toProductData } = require('./validation');
 
 function buildApp({ db, logger = false }) {
   const app = Fastify({ logger });
@@ -69,6 +69,22 @@ function buildApp({ db, logger = false }) {
   });
 
   app.after(() => {
+    app.get('/api/products', {
+      schema: {
+        tags: ['Products'],
+        summary: 'Get all products',
+        response: {
+          200: {
+            type: 'array',
+            items: productSchema
+          }
+        }
+      }
+    }, async (_, reply) => {
+      const products = await db.getAll();
+      return reply.code(200).send(products);
+    });
+
     app.get('/api/products/:productId', {
       schema: {
         tags: ['Products'],
@@ -115,6 +131,63 @@ function buildApp({ db, logger = false }) {
       return reply.code(201).send(created);
     });
 
+    app.put('/api/products/:productId', {
+      schema: {
+        tags: ['Products'],
+        summary: 'Update a product',
+        params: productIdParamsSchema,
+        body: productPayloadSchema,
+        response: {
+          200: productSchema,
+          400: errorSchema,
+          404: errorSchema
+        }
+      }
+    }, async (request, reply) => {
+      const { productId } = request.params;
+
+      if (!isValidUuid(productId)) {
+        return reply.code(400).send({ message: 'Invalid productId: expected UUID v4' });
+      }
+
+      const validationError = validateProductPayload(request.body);
+      if (validationError) {
+        return reply.code(400).send({ message: validationError });
+      }
+
+      const updated = await db.update(productId, toProductData(request.body));
+      if (!updated) {
+        return reply.code(404).send({ message: `Product with id ${productId} not found` });
+      }
+
+      return reply.code(200).send(updated);
+    });
+
+    app.delete('/api/products/:productId', {
+      schema: {
+        tags: ['Products'],
+        summary: 'Delete a product',
+        params: productIdParamsSchema,
+        response: {
+          204: { type: 'null' },
+          400: errorSchema,
+          404: errorSchema
+        }
+      }
+    }, async (request, reply) => {
+      const { productId } = request.params;
+
+      if (!isValidUuid(productId)) {
+        return reply.code(400).send({ message: 'Invalid productId: expected UUID v4' });
+      }
+
+      const deleted = await db.delete(productId);
+      if (!deleted) {
+        return reply.code(404).send({ message: `Product with id ${productId} not found` });
+      }
+
+      return reply.code(204).send();
+    });
   });
 
   app.setNotFoundHandler((request, reply) => {
