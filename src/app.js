@@ -1,7 +1,7 @@
 const Fastify = require('fastify');
 const swagger = require('@fastify/swagger');
 const swaggerUi = require('@fastify/swagger-ui');
-const { isValidUuid } = require('./validation');
+const { isValidUuid, validateProductPayload } = require('./validation');
 
 function buildApp({ db, logger = false }) {
   const app = Fastify({ logger });
@@ -94,6 +94,27 @@ function buildApp({ db, logger = false }) {
 
       return reply.code(200).send(product);
     });
+
+    app.post('/api/products', {
+      schema: {
+        tags: ['Products'],
+        summary: 'Create a product',
+        body: productPayloadSchema,
+        response: {
+          201: productSchema,
+          400: errorSchema
+        }
+      }
+    }, async (request, reply) => {
+      const validationError = validateProductPayload(request.body);
+      if (validationError) {
+        return reply.code(400).send({ message: validationError });
+      }
+
+      const created = await db.create(toProductData(request.body));
+      return reply.code(201).send(created);
+    });
+
   });
 
   app.setNotFoundHandler((request, reply) => {
