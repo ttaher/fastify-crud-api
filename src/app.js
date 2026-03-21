@@ -2,8 +2,53 @@ const Fastify = require('fastify');
 const swagger = require('@fastify/swagger');
 const swaggerUi = require('@fastify/swagger-ui');
 
-function buildApp({logger = false }) {
+function buildApp({db, logger = false }) {
   const app = Fastify({ logger });
+
+    const productSchema = {
+    type: 'object',
+    required: ['id', 'name', 'description', 'price', 'category', 'inStock'],
+    properties: {
+      id: { type: 'string', format: 'uuid' },
+      name: { type: 'string' },
+      description: { type: 'string' },
+      price: { type: 'number', exclusiveMinimum: 0 },
+      category: { type: 'string' },
+      inStock: { type: 'boolean' },
+      createdAt: { type: 'string', format: 'date-time' ,default: new Date().toISOString() },
+      updatedAt: { type: 'string', format: 'date-time' },
+      imgUrl: { type: 'string', format: 'uri' }
+
+    }
+  };
+
+  const productPayloadSchema = {
+    type: 'object',
+    required: ['name', 'description', 'price', 'category', 'inStock'],
+    properties: {
+      name: { type: 'string' },
+      description: { type: 'string' },
+      price: { type: 'number', exclusiveMinimum: 0 },
+      category: { type: 'string' },
+      inStock: { type: 'boolean' }
+    }
+  };
+
+  const productIdParamsSchema = {
+    type: 'object',
+    required: ['productId'],
+    properties: {
+      productId: { type: 'string', format: 'uuid' }
+    }
+  };
+
+  const errorSchema = {
+    type: 'object',
+    required: ['message'],
+    properties: {
+      message: { type: 'string' }
+    }
+  };
 
   app.register(swagger, {
     openapi: {
@@ -65,6 +110,9 @@ function buildApp({logger = false }) {
     reply.log.error(error);
     reply.code(500).send({ message: 'Internal server error' });
   });
+
+  app.after(() => {});
+
 
   return app;
 }
